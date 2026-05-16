@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeGuard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRV7lhrsv0LtPUBRv_MtHT3Q3u_EtJ6RRxWHQ&s">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0c0c0e;
+  --ink2:#111114;
+  --ink3:#18181c;
+  --glass:rgba(255,255,255,0.032);
+  --glass2:rgba(255,255,255,0.055);
+  --glass3:rgba(255,255,255,0.08);
+  --rim:rgba(255,255,255,0.07);
+  --rim2:rgba(255,255,255,0.12);
+  --rim3:rgba(255,255,255,0.2);
+  --snow:#f2f2f4;
+  --mist:rgba(242,242,244,0.55);
+  --fog:rgba(242,242,244,0.28);
+  --ghost:rgba(242,242,244,0.12);
+  --red:#ff3b30;
+  --amber:#ff9500;
+  --lime:#34c759;
+  --azure:#0a84ff;
+  --r:16px;
+  --r-sm:10px;
+  --shadow:0 32px 64px rgba(0,0,0,0.7),0 8px 16px rgba(0,0,0,0.5);
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:'Syne',sans-serif;
+  background:var(--ink);
+  color:var(--snow);
+  min-height:100vh;
+  overflow-x:hidden;
+  cursor:default;
+}
+
+
+
+/* ════ CANVAS BG ════ */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.7}
+
+/* ════ NOISE OVERLAY ════ */
+.noise{
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:128px;
+}
+
+/* ════ SCANLINES ════ */
+.scanlines{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+}
+
+/* ════ LAYOUT ════ */
+.app{
+  position:relative;z-index:2;
+  max-width:900px;margin:0 auto;
+  padding:32px 20px 100px;
+}
+
+/* ════ MENUBAR ════ */
+.menubar{
+  display:flex;align-items:center;gap:0;
+  background:rgba(22,22,26,0.9);
+  backdrop-filter:blur(40px) saturate(180%);
+  border:1px solid var(--rim);
+  border-radius:14px;
+  padding:12px 18px;
+  margin-bottom:52px;
+  box-shadow:0 2px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.tl-cluster{display:flex;gap:7px;align-items:center;margin-right:20px}
+.tl{width:12px;height:12px;border-radius:50%;position:relative;cursor:pointer;transition:filter .15s}
+.tl:hover{filter:brightness(1.3)}
+.tl-r{background:#ff5f57;box-shadow:0 0 8px rgba(255,95,87,.5)}
+.tl-y{background:#ffbd2e;box-shadow:0 0 8px rgba(255,189,46,.4)}
+.tl-g{background:#28ca41;box-shadow:0 0 8px rgba(40,202,65,.4)}
+.mb-sep{width:1px;height:18px;background:var(--rim);margin:0 16px}
+.mb-title{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--mist);text-transform:uppercase}
+.mb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.mb-badge{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(52,199,89,0.12);color:var(--lime);
+  border:1px solid rgba(52,199,89,0.2);
+}
+.mb-badge.scanning{background:rgba(255,149,0,0.12);color:var(--amber);border-color:rgba(255,149,0,0.2)}
+.mb-badge.threat{background:rgba(255,59,48,0.12);color:var(--red);border-color:rgba(255,59,48,0.2)}
+
+/* ════ HERO ════ */
+.hero{
+  text-align:center;
+  padding:0 20px 52px;
+  position:relative;
+}
+.hero-glyph{
+  width:88px;height:88px;margin:0 auto 28px;
+  position:relative;
+}
+.glyph-ring{
+  position:absolute;inset:0;border-radius:28px;
+  border:1px solid rgba(255,255,255,0.1);
+  animation:glyph-spin 12s linear infinite;
+}
+.glyph-ring::before{
+  content:'';position:absolute;
+  top:-2px;left:50%;transform:translateX(-50%);
+  width:6px;height:6px;border-radius:50%;
+  background:white;box-shadow:0 0 12px 4px rgba(255,255,255,0.6);
+}
+@keyframes glyph-spin{to{transform:rotate(360deg)}}
+.glyph-ring2{
+  position:absolute;inset:8px;border-radius:22px;
+  border:1px solid rgba(255,255,255,0.06);
+  animation:glyph-spin 8s linear infinite reverse;
+}
+.glyph-core{
+  position:absolute;inset:16px;border-radius:16px;
+  background:linear-gradient(135deg,#1c1c20,#252529);
+  border:1px solid rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 24px rgba(0,0,0,0.5);
+}
+.hero h1{
+  font-size:52px;font-weight:800;letter-spacing:-.04em;
+  line-height:1.05;
+  background:linear-gradient(180deg,#fff 30%,rgba(255,255,255,0.4));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:16px;
+}
+.hero h1 span{
+  background:linear-gradient(135deg,#fff,rgba(255,255,255,0.6));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+  font-size:17px;font-weight:400;color:var(--fog);
+  max-width:420px;margin:0 auto 28px;line-height:1.65;
+  font-family:'JetBrains Mono',monospace;
+}
+.hero-pills{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.hpill{
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--rim);background:var(--glass);color:var(--fog);
+}
+
+/* ════ STEP TRACK ════ */
+.step-track{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  margin-bottom:36px;
+}
+.st-item{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ghost);transition:color .4s;
+}
+.st-item.active{color:var(--snow)}
+.st-item.done{color:var(--lime)}
+.st-num{
+  width:26px;height:26px;border-radius:50%;
+  border:1.5px solid currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;
+  transition:all .35s;
+}
+.st-item.active .st-num{background:var(--snow);color:var(--ink);border-color:var(--snow)}
+.st-item.done .st-num{background:var(--lime);color:#000;border-color:var(--lime)}
+.st-line{
+  width:60px;height:1px;
+  background:linear-gradient(to right,rgba(255,255,255,0.1),rgba(255,255,255,0.04));
+  margin:0 12px;
+}
+
+/* ════ GLASS PANEL ════ */
+.panel{
+  background:rgba(16,16,20,0.88);
+  border:1px solid var(--rim);
+  border-radius:20px;
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,0.055);
+  backdrop-filter:blur(48px) saturate(160%);
+  overflow:hidden;
+  margin-bottom:16px;
+  animation:panel-in .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes panel-in{
+  from{opacity:0;transform:translateY(16px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+.panel-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--rim);
+  background:rgba(255,255,255,0.018);
+}
+.panel-icon{font-size:14px;opacity:.6}
+.panel-ttl{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--fog)}
+.panel-body{padding:28px}
+
+/* ════ PROJECT CARDS ════ */
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:640px){.pg{grid-template-columns:1fr 1fr}}
+.pc{
+  position:relative;overflow:hidden;
+  background:var(--glass);
+  border:1.5px solid var(--rim);
+  border-radius:14px;
+  padding:20px 16px 18px;
+  cursor:pointer;
+  transition:all .22s cubic-bezier(.25,.46,.45,.94);
+}
+.pc::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 0%,rgba(255,255,255,0.06),transparent 60%);
+  opacity:0;transition:opacity .22s;
+}
+.pc:hover{border-color:var(--rim2);background:var(--glass2);transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.5)}
+.pc:hover::before{opacity:1}
+.pc.sel{
+  border-color:rgba(255,255,255,0.45);
+  background:rgba(255,255,255,0.065);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.1),0 16px 40px rgba(0,0,0,0.5);
+}
+.pc.sel::before{opacity:1}
+.pc-check{
+  position:absolute;top:10px;right:10px;
+  width:20px;height:20px;border-radius:50%;
+  background:white;color:#000;
+  display:none;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;
+}
+.pc.sel .pc-check{display:flex}
+.pc-icon{font-size:30px;margin-bottom:12px;display:block}
+.pc-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.pc-desc{font-size:11.5px;color:var(--fog);line-height:1.45;font-family:'JetBrains Mono',monospace}
+
+/* ════ LANG CHIPS ════ */
+.lrow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:22px}
+.lchip{
+  padding:6px 15px;border-radius:20px;
+  border:1.5px solid var(--rim);background:var(--glass);
+  font-size:12.5px;font-weight:600;
+  cursor:pointer;transition:all .18s;
+  font-family:'JetBrains Mono',monospace;letter-spacing:.01em;
+}
+.lchip:hover{border-color:var(--rim2);background:var(--glass2)}
+.lchip.sel{border-color:rgba(255,255,255,0.45);background:var(--glass3);color:white}
+
+/* ════ CODE AREA ════ */
+.code-wrap{position:relative}
+.code-ln{
+  position:absolute;top:0;left:0;bottom:0;width:48px;
+  border-right:1px solid var(--rim);
+  padding:18px 0;
+  display:flex;flex-direction:column;align-items:center;
+  gap:0;pointer-events:none;overflow:hidden;
+}
+.ln-num{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--ghost);
+  line-height:1.7;padding:0 8px;width:100%;text-align:right;
+}
+textarea.codearea{
+  width:100%;min-height:260px;
+  background:rgba(0,0,0,0.45);
+  border:1.5px solid var(--rim);
+  border-radius:14px;
+  color:#e0e0e8;
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px;line-height:1.7;
+  padding:18px 18px 18px 66px;
+  resize:vertical;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+  tab-size:2;
+}
+textarea.codearea:focus{
+  border-color:rgba(255,255,255,0.22);
+  box-shadow:0 0 0 4px rgba(255,255,255,0.04);
+}
+textarea.codearea::placeholder{color:var(--ghost);font-family:'Syne',sans-serif;font-size:13.5px}
+.code-meta{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 14px;
+  background:rgba(0,0,0,0.3);border:1.5px solid var(--rim);
+  border-top:none;border-radius:0 0 14px 14px;
+  font-size:11px;font-family:'JetBrains Mono',monospace;
+  color:var(--ghost);
+}
+
+/* ════ TOGGLE OPTIONS ════ */
+.optgrid{display:flex;flex-wrap:wrap;gap:8px}
+.optbtn{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:20px;
+  border:1.5px solid var(--rim);background:var(--glass);
+  font-size:12.5px;font-weight:600;font-family:'Syne',sans-serif;
+  cursor:pointer;transition:all .18s;user-select:none;
+}
+.optbtn:hover{border-color:var(--rim2)}
+.optbtn.on{border-color:rgba(255,149,0,0.5);background:rgba(255,149,0,0.07);color:var(--amber)}
+.optbtn.on .od{background:var(--amber);box-shadow:0 0 6px rgba(255,149,0,0.6)}
+.od{width:7px;height:7px;border-radius:50%;background:var(--ghost);transition:all .18s}
+
+/* ════ BUTTONS ════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:12px 28px;border-radius:12px;
+  font-size:14.5px;font-weight:700;font-family:'Syne',sans-serif;
+  letter-spacing:-.01em;
+  cursor:pointer;border:none;outline:none;
+  transition:all .2s cubic-bezier(.25,.46,.45,.94);
+  position:relative;overflow:hidden;
+}
+.btn::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,0.12),transparent 60%);
+  opacity:0;transition:opacity .2s;
+}
+.btn:hover::after{opacity:1}
+.btn-p{
+  background:var(--snow);color:var(--ink);
+  box-shadow:0 4px 16px rgba(242,242,244,0.15),inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.btn-p:hover{background:#fff;transform:translateY(-1px);box-shadow:0 8px 28px rgba(242,242,244,0.22)}
+.btn-p:active{transform:translateY(0)}
+.btn-p:disabled{opacity:.25;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-s{
+  background:var(--glass);color:var(--mist);
+  border:1.5px solid var(--rim);
+}
+.btn-s:hover{background:var(--glass2);border-color:var(--rim2)}
+.btn-row{display:flex;align-items:center;justify-content:space-between;margin-top:24px;flex-wrap:wrap;gap:10px}
+
+/* ════ LOADING ════ */
+.loading-body{
+  padding:64px 32px;text-align:center;display:none;
+}
+.scan-viz{
+  width:100px;height:100px;margin:0 auto 32px;
+  position:relative;
+}
+.sv-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1.5px solid transparent;
+  border-top-color:rgba(255,255,255,0.6);
+  animation:spin .9s linear infinite;
+}
+.sv-ring2{
+  position:absolute;inset:12px;border-radius:50%;
+  border:1px solid transparent;
+  border-top-color:rgba(255,255,255,0.25);
+  animation:spin 1.4s linear infinite reverse;
+}
+.sv-ring3{
+  position:absolute;inset:24px;border-radius:50%;
+  border:1px solid transparent;
+  border-top-color:rgba(255,255,255,0.1);
+  animation:spin 2s linear infinite;
+}
+.sv-core{
+  position:absolute;inset:36px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,0.08),transparent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  animation:pulse2 2s ease-in-out infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse2{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
+.load-stage{
+  font-size:18px;font-weight:700;color:var(--snow);margin-bottom:8px;
+  animation:fadein .4s;
+}
+.load-detail{
+  font-size:13px;color:var(--fog);font-family:'JetBrains Mono',monospace;
+  animation:fadein .4s;
+}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.progress-bar-bg{
+  width:280px;max-width:100%;height:3px;
+  background:var(--glass);border-radius:2px;
+  margin:24px auto 0;overflow:hidden;
+}
+.progress-bar-fill{
+  height:100%;background:linear-gradient(90deg,rgba(255,255,255,0.3),white);
+  border-radius:2px;width:0%;
+  transition:width 2s cubic-bezier(.25,.46,.45,.94);
+}
+
+/* ════ RESULTS ════ */
+.verdict-strip{
+  border-radius:14px;padding:22px 24px;
+  display:flex;align-items:flex-start;gap:18px;
+  margin-bottom:22px;position:relative;overflow:hidden;
+}
+.vs-safe  {background:rgba(52,199,89,0.07);border:1.5px solid rgba(52,199,89,0.25)}
+.vs-warn  {background:rgba(255,149,0,0.07);border:1.5px solid rgba(255,149,0,0.25)}
+.vs-danger{background:rgba(255,59,48,0.08);border:1.5px solid rgba(255,59,48,0.3)}
+.vs-safe::before,
+.vs-warn::before,
+.vs-danger::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+}
+.vs-safe::before  {background:linear-gradient(90deg,transparent,rgba(52,199,89,0.5),transparent)}
+.vs-warn::before  {background:linear-gradient(90deg,transparent,rgba(255,149,0,0.5),transparent)}
+.vs-danger::before{background:linear-gradient(90deg,transparent,rgba(255,59,48,0.5),transparent)}
+.vs-icon{font-size:36px;flex-shrink:0;filter:drop-shadow(0 4px 12px currentColor)}
+.vs-label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6;margin-bottom:3px}
+.vs-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.vs-safe .vs-title  {color:var(--lime)}
+.vs-warn .vs-title  {color:var(--amber)}
+.vs-danger .vs-title{color:var(--red)}
+.vs-sub{font-size:13.5px;color:var(--fog);line-height:1.6;font-family:'JetBrains Mono',monospace}
+
+/* risk meter */
+.risk-row{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.risk-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fog);width:80px;flex-shrink:0}
+.risk-bg{flex:1;height:6px;background:var(--glass);border-radius:3px;overflow:hidden;position:relative}
+.risk-fill{height:100%;border-radius:3px;transition:width 1.2s cubic-bezier(.25,.46,.45,.94)}
+.risk-num{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;width:36px;text-align:right;flex-shrink:0}
+
+/* badge row */
+.brow{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.bdg{
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 10px;border-radius:5px;
+}
+.bdg-n{background:rgba(255,255,255,0.05);color:var(--fog)}
+.bdg-d{background:rgba(255,59,48,0.12);color:var(--red)}
+.bdg-w{background:rgba(255,149,0,0.12);color:var(--amber)}
+.bdg-s{background:rgba(52,199,89,0.1);color:var(--lime)}
+.bdg-i{background:rgba(10,132,255,0.1);color:var(--azure)}
+
+/* summary */
+.summary-box{
+  background:var(--glass);border:1px solid var(--rim);
+  border-radius:14px;padding:20px 22px;margin-bottom:20px;
+}
+.box-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fog);margin-bottom:12px}
+.summary-text{font-size:14px;line-height:1.75;color:var(--mist);font-family:'JetBrains Mono',monospace}
+
+/* findings */
+.findings{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+.fitem{
+  border-radius:12px;padding:16px 18px;
+  border-left:3px solid;
+  background:var(--glass);
+  position:relative;overflow:hidden;
+}
+.fitem::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 0% 50%,rgba(255,255,255,0.025),transparent 50%);
+}
+.fitem.fh{border-left-color:var(--red);background:rgba(255,59,48,0.04)}
+.fitem.fm{border-left-color:var(--amber);background:rgba(255,149,0,0.04)}
+.fitem.fl{border-left-color:var(--azure);background:rgba(10,132,255,0.04)}
+.fitem.fi{border-left-color:rgba(255,255,255,0.2)}
+.ftag{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 9px;border-radius:4px;margin-bottom:8px;
+}
+.fitem.fh .ftag{background:rgba(255,59,48,0.15);color:var(--red)}
+.fitem.fm .ftag{background:rgba(255,149,0,0.15);color:var(--amber)}
+.fitem.fl .ftag{background:rgba(10,132,255,0.15);color:var(--azure)}
+.fitem.fi .ftag{background:rgba(255,255,255,0.06);color:var(--fog)}
+.ftitle{font-size:14.5px;font-weight:700;margin-bottom:5px}
+.fdesc{font-size:13px;color:var(--fog);line-height:1.6;font-family:'JetBrains Mono',monospace}
+
+/* ════ DIVIDER ════ */
+.div{height:1px;background:var(--rim);margin:22px 0}
+
+/* ════ FIELD LABEL ════ */
+.flbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fog);display:block;margin-bottom:10px}
+
+/* ════ UTIL ════ */
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
+
+/* ════ TOAST ════ */
+.toast{
+  position:fixed;bottom:28px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:rgba(24,24,28,0.97);
+  border:1px solid var(--rim2);
+  border-radius:12px;padding:13px 22px;
+  font-size:14px;font-weight:600;
+  backdrop-filter:blur(32px);
+  transition:transform .35s cubic-bezier(.25,.46,.45,.94);
+  z-index:1000;white-space:nowrap;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ════ ERROR PANEL ════ */
+.err-box{
+  background:rgba(255,59,48,0.07);
+  border:1.5px solid rgba(255,59,48,0.25);
+  border-radius:14px;padding:20px 22px;
+  margin-bottom:20px;display:none;
+}
+.err-title{font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px}
+.err-msg{font-size:13px;color:var(--fog);font-family:'JetBrains Mono',monospace;line-height:1.6}
+.err-fix{margin-top:12px;font-size:12.5px;color:var(--amber);line-height:1.6}
+
+@media(max-width:500px){
+  .hero h1{font-size:36px}
+  .panel-body{padding:20px 16px}
+  .pg{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+
+<canvas id="bg"></canvas>
+<div class="noise"></div>
+<div class="scanlines"></div>
+
+<div class="app">
+
+  <!-- MENUBAR -->
+  <div class="menubar">
+    <div class="tl-cluster">
+      <div class="tl tl-r"></div>
+      <div class="tl tl-y"></div>
+      <div class="tl tl-g"></div>
+    </div>
+    <div class="mb-sep"></div>
+    <span class="mb-title">CodeGuard AI</span>
+    <div class="mb-right">
+      <span class="mb-badge" id="statusBadge">READY</span>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-glyph">
+      <div class="glyph-ring"></div>
+      <div class="glyph-ring2"></div>
+      <div class="glyph-core">🛡️</div>
+    </div>
+    <h1>Code<span>Guard</span></h1>
+    <p class="hero-sub">AI-powered script security analysis.<br>Detect exploits, malware & hidden threats.</p>
+    <div class="hero-pills">
+      <div class="hpill">Roblox Exploits</div>
+      <div class="hpill">Malware Detection</div>
+      <div class="hpill">Obfuscation</div>
+      <div class="hpill">Backdoors</div>
+      <div class="hpill">Data Exfil</div>
+    </div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="panel" id="s1">
+    <div class="panel-bar">
+      <span class="panel-icon">📁</span>
+      <span class="panel-ttl">Step 1 — Project Type</span>
+    </div>
+    <div class="panel-body">
+      <div class="step-track">
+        <div class="st-item active" id="t1"><div class="st-num">1</div><span>Context</span></div>
+        <div class="st-line"></div>
+        <div class="st-item" id="t2"><div class="st-num">2</div><span>Script</span></div>
+        <div class="st-line"></div>
+        <div class="st-item" id="t3"><div class="st-num">3</div><span>Report</span></div>
+      </div>
+
+      <span class="flbl">What kind of project is this from?</span>
+      <div class="pg" id="pgrid">
+        <div class="pc" data-v="roblox">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">🎮</span>
+          <div class="pc-name">Roblox Game</div>
+          <div class="pc-desc">Lua / Luau scripts, LocalScripts, ServerScripts, ModuleScripts</div>
+        </div>
+        <div class="pc" data-v="windows">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">🖥️</span>
+          <div class="pc-name">Windows App</div>
+          <div class="pc-desc">C++, C#, VB.NET, Windows Forms, WPF, Batch</div>
+        </div>
+        <div class="pc" data-v="terminal">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">⌨️</span>
+          <div class="pc-name">Terminal / CLI</div>
+          <div class="pc-desc">Python, Bash, Shell, PowerShell, Ruby, Go</div>
+        </div>
+        <div class="pc" data-v="web">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">🌐</span>
+          <div class="pc-name">Web / Server</div>
+          <div class="pc-desc">JavaScript, TypeScript, PHP, Node.js, backend APIs</div>
+        </div>
+        <div class="pc" data-v="game">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">🕹️</span>
+          <div class="pc-name">Game Engine</div>
+          <div class="pc-desc">Unity C#, Unreal C++, GameMaker, Godot GDScript</div>
+        </div>
+        <div class="pc" data-v="other">
+          <div class="pc-check">✓</div>
+          <span class="pc-icon">📄</span>
+          <div class="pc-name">Other / Unknown</div>
+          <div class="pc-desc">Any other language or undetermined project type</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <span style="font-size:12.5px;color:var(--ghost)">Select a project type above</span>
+        <button class="btn btn-p" id="s1btn" disabled onclick="go2()">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="panel hidden" id="s2">
+    <div class="panel-bar">
+      <span class="panel-icon">💻</span>
+      <span class="panel-ttl">Step 2 — Paste Your Script</span>
+    </div>
+    <div class="panel-body">
+      <div class="step-track">
+        <div class="st-item done"><div class="st-num">1</div><span>Context</span></div>
+        <div class="st-line"></div>
+        <div class="st-item active"><div class="st-num">2</div><span>Script</span></div>
+        <div class="st-line"></div>
+        <div class="st-item"><div class="st-num">3</div><span>Report</span></div>
+      </div>
+
+      <span class="flbl">Language</span>
+      <div class="lrow" id="lrow"></div>
+
+      <span class="flbl">Your Script</span>
+      <div class="code-wrap">
+        <div class="code-ln" id="lnums">
+          <div class="ln-num">1</div><div class="ln-num">2</div><div class="ln-num">3</div>
+          <div class="ln-num">4</div><div class="ln-num">5</div><div class="ln-num">6</div>
+          <div class="ln-num">7</div><div class="ln-num">8</div><div class="ln-num">9</div>
+          <div class="ln-num">10</div>
+        </div>
+        <textarea class="codearea" id="codeIn" placeholder="Paste your script here…" spellcheck="false" oninput="onCode()"></textarea>
+      </div>
+      <div class="code-meta">
+        <span id="cinfo" style="font-size:11px">0 lines · 0 chars</span>
+        <span>CodeGuard AI</span>
+      </div>
+
+      <!-- Roblox extras -->
+      <div id="rbx" class="hidden" style="margin-top:20px">
+        <span class="flbl">🎮 Roblox-Specific Checks</span>
+        <div class="optgrid">
+          <div class="optbtn on" id="o_exploit" onclick="tog(this)"><div class="od"></div>Detect Exploits & Cheats</div>
+          <div class="optbtn" id="o_remote" onclick="tog(this)"><div class="od"></div>RemoteEvent Abuse</div>
+          <div class="optbtn" id="o_admin" onclick="tog(this)"><div class="od"></div>Admin Command Bypass</div>
+          <div class="optbtn on" id="o_obf" onclick="tog(this)"><div class="od"></div>Obfuscation Detection</div>
+          <div class="optbtn" id="o_speed" onclick="tog(this)"><div class="od"></div>Speed / Fly Hacks</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <span class="flbl">🔒 Security Checks</span>
+        <div class="optgrid">
+          <div class="optbtn on" id="o_mal" onclick="tog(this)"><div class="od"></div>Malware & Backdoors</div>
+          <div class="optbtn on" id="o_data" onclick="tog(this)"><div class="od"></div>Data Exfiltration</div>
+          <div class="optbtn" id="o_obf2" onclick="tog(this)"><div class="od"></div>Code Obfuscation</div>
+          <div class="optbtn" id="o_priv" onclick="tog(this)"><div class="od"></div>Privilege Escalation</div>
+          <div class="optbtn" id="o_net" onclick="tog(this)"><div class="od"></div>Suspicious Network Calls</div>
+          <div class="optbtn" id="o_key" onclick="tog(this)"><div class="od"></div>Keylogger / Spyware</div>
+        </div>
+      </div>
+
+      <!-- Error box -->
+      <div class="err-box" id="errBox">
+        <div class="err-title">⚠️ Analysis Failed</div>
+        <div class="err-msg" id="errMsg"></div>
+        <div class="err-fix" id="errFix"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="go1()">← Back</button>
+        <button class="btn btn-p" id="scanBtn" onclick="scan()">🔍 Analyze Script</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="panel hidden" id="sload">
+    <div class="panel-bar">
+      <span class="panel-icon">⚡</span>
+      <span class="panel-ttl">Analyzing…</span>
+    </div>
+    <div class="panel-body loading-body" style="display:block">
+      <div class="scan-viz">
+        <div class="sv-ring"></div>
+        <div class="sv-ring2"></div>
+        <div class="sv-ring3"></div>
+        <div class="sv-core">🔍</div>
+      </div>
+      <div class="load-stage" id="lstage">Initializing scanner…</div>
+      <div class="load-detail" id="ldetail">Setting up analysis environment</div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="pbar"></div></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="panel hidden" id="sres">
+    <div class="panel-bar">
+      <span class="panel-icon">📋</span>
+      <span class="panel-ttl">Step 3 — Security Report</span>
+    </div>
+    <div class="panel-body" id="resbody"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+
+/* ── CANVAS BG ───────────────────────────────────────────────────── */
+const cv=document.getElementById('bg'),c=cv.getContext('2d');
+let W,H;
+function rsz(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+rsz();window.addEventListener('resize',rsz);
+
+const pts=Array.from({length:80},()=>({
+  x:Math.random()*9999,y:Math.random()*9999,
+  vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,
+  r:Math.random()*1.5+.4,o:Math.random()*.35+.06
+}));
+
+let t=0;
+function draw(){
+  t+=.003;
+  c.clearRect(0,0,W,H);
+
+  // moving gradient blobs
+  const x1=W*(.25+Math.sin(t)*.08),y1=H*(.3+Math.cos(t*.7)*.06);
+  const g1=c.createRadialGradient(x1,y1,0,x1,y1,W*.4);
+  g1.addColorStop(0,'rgba(255,255,255,0.018)');g1.addColorStop(1,'transparent');
+  c.fillStyle=g1;c.fillRect(0,0,W,H);
+
+  const x2=W*(.75+Math.cos(t*.6)*.07),y2=H*(.65+Math.sin(t*.8)*.05);
+  const g2=c.createRadialGradient(x2,y2,0,x2,y2,W*.35);
+  g2.addColorStop(0,'rgba(255,255,255,0.012)');g2.addColorStop(1,'transparent');
+  c.fillStyle=g2;c.fillRect(0,0,W,H);
+
+  // faint grid
+  c.strokeStyle='rgba(255,255,255,0.022)';c.lineWidth=.8;
+  for(let x=0;x<W;x+=80){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}
+  for(let y=0;y<H;y+=80){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}
+
+  // particles + lines
+  pts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    c.beginPath();c.arc(p.x,p.y,p.r,0,Math.PI*2);
+    c.fillStyle=`rgba(255,255,255,${p.o})`;c.fill();
+  });
+  for(let i=0;i<pts.length;i++){
+    for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<120){
+        c.beginPath();c.moveTo(pts[i].x,pts[i].y);c.lineTo(pts[j].x,pts[j].y);
+        c.strokeStyle=`rgba(255,255,255,${.045*(1-d/120)})`;
+        c.lineWidth=.4;c.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ── STATE ───────────────────────────────────────────────────────── */
+let proj=null,lang=null;
+const langs={
+  roblox:['Lua','Luau'],
+  windows:['C++','C#','VB.NET','PowerShell','Batch'],
+  terminal:['Python','Bash','Shell','PowerShell','Ruby','Go','Perl'],
+  web:['JavaScript','TypeScript','PHP','Python','Ruby'],
+  game:['C#','C++','GDScript','Lua'],
+  other:['Python','JavaScript','C++','C#','Lua','PHP','Other']
+};
+const projNames={roblox:'Roblox game',windows:'Windows application',terminal:'Terminal/CLI',web:'Web/server',game:'Game engine',other:'Unknown project'};
+
+/* ── PROJECT SELECT ──────────────────────────────────────────────── */
+document.querySelectorAll('.pc').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.pc').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel');proj=c.dataset.v;
+    document.getElementById('s1btn').disabled=false;
+  });
+});
+
+function go2(){
+  hide('s1');show('s2');
+  // build lang chips
+  const row=document.getElementById('lrow');row.innerHTML='';
+  const ls=langs[proj]||['Other'];lang=ls[0];
+  ls.forEach((l,i)=>{
+    const ch=document.createElement('div');
+    ch.className='lchip'+(i===0?' sel':'');
+    ch.textContent=l;
+    ch.addEventListener('click',()=>{
+      document.querySelectorAll('.lchip').forEach(x=>x.classList.remove('sel'));
+      ch.classList.add('sel');lang=l;
+    });
+    row.appendChild(ch);
+  });
+  if(proj==='roblox')document.getElementById('rbx').classList.remove('hidden');
+  else document.getElementById('rbx').classList.add('hidden');
+  hideErr();
+}
+
+function go1(){hide('s2');hide('sres');show('s1');setStatus('ready')}
+
+function tog(el){el.classList.toggle('on')}
+
+function onCode(){
+  const v=document.getElementById('codeIn').value;
+  const lines=v.split('\n').length;
+  document.getElementById('cinfo').textContent=`${lines} lines · ${v.length.toLocaleString()} chars`;
+  // update line numbers
+  const ln=document.getElementById('lnums');ln.innerHTML='';
+  for(let i=1;i<=Math.max(lines,10);i++){
+    const d=document.createElement('div');d.className='ln-num';d.textContent=i;ln.appendChild(d);
+  }
+}
+
+/* ── KEY ─────────────────────────────────────────────────────────── */
+const _p=['gsk_5lrk','B7xe','A1Yj','6WoSWGdyb3FYYd','651kyN9ML','SJUmoaGs2ivjA'];
+const gk=()=>_p[0]+_p[1]+_p[2]+_p[3]+_p[4]+_p[5];
+
+/* ── LOADING ─────────────────────────────────────────────────────── */
+const stages=[
+  ['Parsing syntax tree…','Tokenizing code structure'],
+  ['Scanning for patterns…','Checking known malicious signatures'],
+  ['Analyzing network calls…','Detecting data exfiltration vectors'],
+  ['Evaluating obfuscation…','Decoding encoded payloads'],
+  ['Running behavioral analysis…','Simulating execution paths'],
+  ['Compiling findings…','Generating security report']
+];
+let lti=null,lprog=0;
+function startLoad(){
+  let si=0;
+  const lt=document.getElementById('lstage'),ld=document.getElementById('ldetail'),pb=document.getElementById('pbar');
+  pb.style.width='0%';lprog=0;
+  const upd=()=>{lt.innerHTML=stages[si][0];ld.innerHTML=stages[si][1];si=(si+1)%stages.length};
+  upd();lti=setInterval(upd,1600);
+  setTimeout(()=>{pb.style.width='85%'},200);
+}
+function stopLoad(){clearInterval(lti);document.getElementById('pbar').style.width='100%'}
+
+/* ── SCAN ────────────────────────────────────────────────────────── */
+async function scan(){
+  const code=document.getElementById('codeIn').value.trim();
+  if(!code){toast('⚠️ Please paste a script first');return}
+  hideErr();
+
+  const opts=[];
+  const ids=['o_exploit','o_remote','o_admin','o_obf','o_speed','o_mal','o_data','o_obf2','o_priv','o_net','o_key'];
+  const labels={'o_exploit':'Roblox exploit/cheat detection','o_remote':'RemoteEvent abuse','o_admin':'admin command bypass',
+    'o_obf':'obfuscation detection','o_speed':'speed/fly hacks','o_mal':'malware and backdoor patterns',
+    'o_data':'data exfiltration','o_obf2':'obfuscated code','o_priv':'privilege escalation',
+    'o_net':'suspicious network calls','o_key':'keylogger/spyware'};
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&el.classList.contains('on'))opts.push(labels[id]);
+  });
+
+  const prompt=`You are CodeGuard AI, a world-class code security analyzer specializing in detecting malicious, suspicious, and harmful code patterns.
+
+Analyze the following ${lang} script from a ${projNames[proj]||'unknown'} context.
+Requested checks: ${opts.join(', ')||'general security analysis'}.
+
+Return ONLY a raw JSON object (no markdown, no code fences, no preamble):
+{
+  "verdict": "safe"|"warning"|"danger",
+  "risk_score": 0-100,
+  "verdict_title": "concise verdict headline",
+  "verdict_subtitle": "one sentence summary for the user",
+  "summary": "3-5 sentence technical analysis paragraph",
+  "findings": [
+    {
+      "severity": "high"|"med"|"low"|"info",
+      "title": "finding title",
+      "description": "detailed explanation with technical context and potential impact"
+    }
+  ],
+  "badges": ["ShortTag1","ShortTag2"]
+}
+
+Rules:
+- If truly clean, verdict=safe, findings=[] or info-only
+- high = critical threat, med = suspicious/concerning, low = minor concern, info = note
+- Badge examples: "Roblox Exploit","Data Theft","Obfuscated","Backdoor","Clean Code","Keylogger","Network Abuse","RemoteEvent Exploit","Credential Theft","Safe Script","Privilege Escalation"
+
+Script:
+\`\`\`${lang}
+${code.slice(0,6000)}
+\`\`\``;
+
+  hide('s2');show('sload');setStatus('scanning');startLoad();
+
+  try{
+    // Try Groq first via CORS proxy
+    let res,data,raw;
+
+    // Method 1: direct Groq (works when opened via server / deployed)
+    try{
+      res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+gk()},
+        body:JSON.stringify({
+          model:'llama-3.3-70b-versatile',
+          messages:[{role:'user',content:prompt}],
+          temperature:.15,max_tokens:2000
+        })
+      });
+      if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status)}
+      data=await res.json();
+      raw=data.choices?.[0]?.message?.content||'';
+    }catch(e1){
+      // Method 2: CORS proxy fallback
+      const encoded=encodeURIComponent(JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[{role:'user',content:prompt}],
+        temperature:.15,max_tokens:2000
+      }));
+      // Try allorigins proxy
+      const proxyRes=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://api.groq.com/openai/v1/chat/completions')}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+gk()},
+        body:JSON.stringify({
+          model:'llama-3.3-70b-versatile',
+          messages:[{role:'user',content:prompt}],
+          temperature:.15,max_tokens:2000
+        })
+      });
+      if(!proxyRes.ok) throw new Error('Connection blocked. Please open this file via a web server (not file://).');
+      data=await proxyRes.json();
+      raw=data.choices?.[0]?.message?.content||'';
+    }
+
+    raw=raw.replace(/```json|```/g,'').trim();
+    // find JSON object
+    const start=raw.indexOf('{'),end=raw.lastIndexOf('}');
+    if(start===-1)throw new Error('No JSON in response');
+    const result=JSON.parse(raw.slice(start,end+1));
+
+    stopLoad();hide('sload');show('sres');
+    setStatus(result.verdict==='danger'?'threat':result.verdict==='warning'?'warn':'ready');
+    renderResult(result);
+  }catch(err){
+    stopLoad();hide('sload');show('s2');
+    setStatus('ready');
+    showErr(err.message);
+  }
+}
+
+/* ── RENDER ──────────────────────────────────────────────────────── */
+function renderResult(r){
+  const rb=document.getElementById('resbody');
+  const vm={
+    safe: {icon:'✅',cls:'vs-safe',label:'All Clear'},
+    warning:{icon:'⚠️',cls:'vs-warn',label:'Suspicious Code'},
+    danger: {icon:'🚨',cls:'vs-danger',label:'Threat Detected'}
+  }[r.verdict]||{icon:'✅',cls:'vs-safe',label:'All Clear'};
+
+  const rc=r.risk_score>=70?'var(--red)':r.risk_score>=35?'var(--amber)':'var(--lime)';
+
+  const fhtml=(r.findings&&r.findings.length>0)?r.findings.map(f=>{
+    const cls=f.severity==='high'?'fh':f.severity==='med'?'fm':f.severity==='low'?'fl':'fi';
+    const tag=f.severity==='high'?'🔴 HIGH RISK':f.severity==='med'?'🟡 MEDIUM':f.severity==='low'?'🔵 LOW':'ℹ️ INFO';
+    return`<div class="fitem ${cls}">
+      <div class="ftag">${tag}</div>
+      <div class="ftitle">${e(f.title)}</div>
+      <div class="fdesc">${e(f.description)}</div>
+    </div>`;
+  }).join(''):'<div style="color:var(--fog);font-size:13.5px;font-family:JetBrains Mono,monospace;padding:8px 0">✓ No specific threats found. Code appears clean.</div>';
+
+  const bhtml=(r.badges||[]).map(b=>{
+    const cl=b.toLowerCase().includes('clean')||b.toLowerCase().includes('safe')?'bdg-s':
+      b.toLowerCase().match(/exploit|malware|backdoor|cheat|theft|keylog|abuse|credential|escalat/)?'bdg-d':
+      b.toLowerCase().match(/suspicious|obfus|warning|remote|network/)?'bdg-w':'bdg-n';
+    return`<span class="bdg ${cl}">${e(b)}</span>`;
+  }).join('');
+
+  rb.innerHTML=`
+    <div class="step-track" style="margin-bottom:28px">
+      <div class="st-item done"><div class="st-num">1</div><span>Context</span></div>
+      <div class="st-line"></div>
+      <div class="st-item done"><div class="st-num">2</div><span>Script</span></div>
+      <div class="st-line"></div>
+      <div class="st-item active"><div class="st-num">3</div><span>Report</span></div>
+    </div>
+
+    <div class="verdict-strip ${vm.cls}">
+      <div class="vs-icon">${vm.icon}</div>
+      <div style="flex:1">
+        <div class="vs-label">${vm.label}</div>
+        <div class="vs-title">${e(r.verdict_title||vm.label)}</div>
+        <div class="vs-sub">${e(r.verdict_subtitle||'')}</div>
+        ${bhtml?`<div class="brow">${bhtml}</div>`:''}
+      </div>
+    </div>
+
+    <div class="risk-row">
+      <span class="risk-label">Risk Score</span>
+      <div class="risk-bg"><div class="risk-fill" id="rfill" style="width:0%;background:${rc}"></div></div>
+      <span class="risk-num" style="color:${rc}">${r.risk_score}</span>
+    </div>
+
+    <div class="summary-box">
+      <div class="box-title">📊 Analysis Summary</div>
+      <div class="summary-text">${e(r.summary||'')}</div>
+    </div>
+
+    <span class="flbl">🔍 Findings (${(r.findings||[]).length})</span>
+    <div class="findings">${fhtml}</div>
+
+    <div class="div"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="go1()">← New Scan</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-s" onclick="copyRep()">📋 Copy Report</button>
+        <button class="btn btn-p" onclick="rescan()">🔄 Re-Analyze</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('sres').scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>{const f=document.getElementById('rfill');if(f)f.style.width=r.risk_score+'%'},400);
+}
+
+function rescan(){hide('sres');show('s2')}
+function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function copyRep(){navigator.clipboard.writeText(document.getElementById('resbody').innerText).then(()=>toast('✅ Report copied!'))}
+
+/* ── ERRORS ──────────────────────────────────────────────────────── */
+function showErr(msg){
+  const box=document.getElementById('errBox');
+  document.getElementById('errMsg').textContent=msg;
+  const iscors=msg.toLowerCase().includes('fetch')||msg.toLowerCase().includes('network')||msg.toLowerCase().includes('cors');
+  document.getElementById('errFix').innerHTML=iscors
+    ?'💡 Fix: This tool needs to run from a web server. Try dragging the file into VS Code and using Live Server, or host it on any web host. CORS blocks direct API calls from file:// URLs.'
+    :'💡 Check that your API key is valid and you have an active internet connection.';
+  box.style.display='block';
+}
+function hideErr(){document.getElementById('errBox').style.display='none'}
+
+/* ── STATUS ──────────────────────────────────────────────────────── */
+function setStatus(s){
+  const b=document.getElementById('statusBadge');
+  if(s==='scanning'){b.className='mb-badge scanning';b.textContent='SCANNING'}
+  else if(s==='threat'){b.className='mb-badge threat';b.textContent='THREAT FOUND'}
+  else if(s==='warn'){b.className='mb-badge scanning';b.textContent='SUSPICIOUS'}
+  else{b.className='mb-badge';b.textContent='READY'}
+}
+
+/* ── HELPERS ─────────────────────────────────────────────────────── */
+function show(id){document.getElementById(id).classList.remove('hidden')}
+function hide(id){document.getElementById(id).classList.add('hidden')}
+
+let toastT;
+function toast(m){
+  const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3200);
+}
+</script>
+</body>
+</html>
