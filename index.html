@@ -940,8 +940,8 @@ ${code.slice(0,6000)}
         temperature:.15,max_tokens:2000
       }));
       // Try allorigins proxy
-      const proxyRes=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://api.groq.com/openai/v1/chat/completions')}`,{
-        method:'POST',
+const proxyRes=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+  method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+gk()},
         body:JSON.stringify({
           model:'llama-3.3-70b-versatile',
